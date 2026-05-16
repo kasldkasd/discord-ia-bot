@@ -25,7 +25,7 @@ app.get("/", (req, res) => {
   res.send("Awita de Sandia está despierta.");
 });
 
-app.listen(PORT, () => {
+app.listen(PORT, "0.0.0.0", () => {
   console.log(`🌐 Servidor web activo en puerto ${PORT}`);
 });
 
