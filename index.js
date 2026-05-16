@@ -1,5 +1,6 @@
 require("dotenv").config();
 
+const express = require("express");
 const { Client, GatewayIntentBits } = require("discord.js");
 const { GoogleGenAI } = require("@google/genai");
 
@@ -16,6 +17,17 @@ const ai = new GoogleGenAI({
 });
 
 const cooldowns = new Map();
+
+const app = express();
+const PORT = process.env.PORT || 3000;
+
+app.get("/", (req, res) => {
+  res.send("Awita de Sandia está despierta.");
+});
+
+app.listen(PORT, () => {
+  console.log(`🌐 Servidor web activo en puerto ${PORT}`);
+});
 
 function esperar(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
