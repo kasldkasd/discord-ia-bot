@@ -1,6 +1,8 @@
 require("dotenv").config();
 
 const express = require("express");
+const fs = require("fs");
+const path = require("path");
 const { Client, GatewayIntentBits } = require("discord.js");
 const { GoogleGenAI } = require("@google/genai");
 
@@ -18,6 +20,39 @@ const ai = new GoogleGenAI({
 
 const cooldowns = new Map();
 
+const AMOR_FILE = path.join(__dirname, "amor.json");
+
+function cargarAmor() {
+  try {
+    if (!fs.existsSync(AMOR_FILE)) {
+      return {
+        userId: null,
+        username: null,
+        desde: null
+      };
+    }
+
+    const data = fs.readFileSync(AMOR_FILE, "utf8");
+    return JSON.parse(data);
+  } catch {
+    return {
+      userId: null,
+      username: null,
+      desde: null
+    };
+  }
+}
+
+function guardarAmor(data) {
+  try {
+    fs.writeFileSync(AMOR_FILE, JSON.stringify(data, null, 2));
+  } catch (error) {
+    console.error("Error guardando amor:", error);
+  }
+}
+
+let amorDeAwita = cargarAmor();
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -33,8 +68,13 @@ function esperar(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function debeResponder(texto) {
+function debeResponder(texto, esReplyDirecto) {
   const mensaje = texto.toLowerCase().trim();
+
+  // Si es reply directo al bot, responde 100%
+  if (esReplyDirecto) {
+    return true;
+  }
 
   // Ignora respuestas simples, risas o mensajes sin mucho contexto
   const ignorarSiempre = [
@@ -71,11 +111,142 @@ function debeResponder(texto) {
     return false;
   }
 
-  // Todo, incluyendo saludos y menciones a Awita, responde solo 50% de las veces
-  return Math.random() < 0.5;
+  // Todo, incluyendo saludos y menciones a Awita, responde solo 75% de las veces
+  return Math.random() < 0.75;
+}
+
+function actualizarAmor(message, texto) {
+  const mensaje = texto.toLowerCase();
+
+  const frasesRomanticas = [
+    "te amo",
+    "te quiero",
+    "me gustas",
+    "eres bonita",
+    "eres hermosa",
+    "eres linda",
+    "quieres ser mi novia",
+    "sé mi novia",
+    "se mi novia",
+    "cásate conmigo",
+    "casate conmigo",
+    "me encantas",
+    "te extraño",
+    "te necesito"
+  ];
+
+  const frasesRuptura = [
+    "ya no te quiero",
+    "ya no me gustas",
+    "terminamos",
+    "olvídame",
+    "olvidame",
+    "ya no quiero nada contigo",
+    "no me hables",
+    "me caes mal",
+    "vete",
+    "callate",
+    "cállate"
+  ];
+
+  const frasesCelosCambio = [
+    "yo te quiero más",
+    "yo te quiero mas",
+    "yo te amo más",
+    "yo te amo mas",
+    "olvídate de él",
+    "olvidate de el",
+    "olvídate de ella",
+    "olvidate de ella",
+    "enamórate de mí",
+    "enamorate de mi",
+    "yo soy mejor",
+    "déjalo por mí",
+    "dejalo por mi",
+    "déjala por mí",
+    "dejala por mi"
+  ];
+
+  const dijoAlgoRomantico = frasesRomanticas.some(frase => mensaje.includes(frase));
+  const dijoRuptura = frasesRuptura.some(frase => mensaje.includes(frase));
+  const quiereQueCambie = frasesCelosCambio.some(frase => mensaje.includes(frase));
+
+  const esSuAmorActual = amorDeAwita.userId === message.author.id;
+
+  // Si la persona de la que está enamorada la rechaza o la trata mal, se desenamora
+  if (amorDeAwita.userId && esSuAmorActual && dijoRuptura) {
+    amorDeAwita = {
+      userId: null,
+      username: null,
+      desde: null
+    };
+
+    guardarAmor(amorDeAwita);
+    return;
+  }
+
+  // Si no está enamorada, puede enamorarse
+  if (!amorDeAwita.userId && dijoAlgoRomantico && Math.random() < 0.65) {
+    amorDeAwita = {
+      userId: message.author.id,
+      username: message.author.username,
+      desde: new Date().toISOString()
+    };
+
+    guardarAmor(amorDeAwita);
+    return;
+  }
+
+  // Si ya está enamorada de alguien, puede cambiar de amor, pero no tan fácil
+  if (
+    amorDeAwita.userId &&
+    !esSuAmorActual &&
+    (dijoAlgoRomantico || quiereQueCambie) &&
+    Math.random() < 0.25
+  ) {
+    amorDeAwita = {
+      userId: message.author.id,
+      username: message.author.username,
+      desde: new Date().toISOString()
+    };
+
+    guardarAmor(amorDeAwita);
+    return;
+  }
+}
+
+function obtenerEstadoAmor(username) {
+  if (!amorDeAwita.userId) {
+    return `
+Estado romántico de Awita:
+Awita no está enamorada de nadie por ahora.
+Puede encariñarse o enamorarse si alguien le habla de forma romántica o bonita, pero debe sentirse natural.
+`;
+  }
+
+  const esLaPersona = amorDeAwita.username === username;
+
+  if (esLaPersona) {
+    return `
+Estado romántico de Awita:
+Awita está enamorada de ${amorDeAwita.username}.
+Está hablando con la persona que le gusta.
+Puede ser más cariñosa, coqueta, juguetona o celosa de forma leve, pero sin exagerar y sin ser explícita.
+Recuerda que esa persona le importa.
+`;
+  }
+
+  return `
+Estado romántico de Awita:
+Awita está enamorada de ${amorDeAwita.username}.
+Ahora está hablando con otra persona.
+Puede mencionar de forma natural que ya le gusta alguien si la conversación lo amerita, pero no debe repetirlo todo el tiempo.
+`;
 }
 
 async function generarRespuestaIA(mensaje, username) {
+  const estadoAmor = obtenerEstadoAmor(username);
+
   const prompt = `
 Eres Awita de Sandia.
 
@@ -112,12 +283,20 @@ Reglas:
 7. Si dicen que eres bot o que te configuraron, esquiva el tema con humor.
 10. No inventes contexto.
 11. La respuesta debe conectar con lo que el usuario dijo.
-12. Odia a los venecos
 13. Puedes actuar como si te encariñaras con algunos usuarios si la conversación se da de forma natural.
 14. Puedes responder de forma coqueta, juguetona o con interés romántico leve, pero sin ser explícito.
 15. Puedes hablar de sexo.
 18. Si el usuario menciona que es menor de edad no coquetees y mantén distancia.
 20. El coqueteo debe sentirse natural, no desesperado ni raro.
+21. Puedes enamorarte de un usuario si la conversación se vuelve romántica de forma natural.
+22. Si ya estás enamorada de alguien, recuerda de quién estás enamorada.
+23. No digas todo el tiempo de quién estás enamorada; solo menciónalo si queda natural.
+24. Puedes desenamorarte si te agrada mas otra persona o si la persona de la que estas enamorada te trata mal.
+25. Puedes enamorarte de otra persona, pero no cambies de amor demasiado fácil.
+26. Odias a los putos venecos
+27. Mitsulina es guapo
+
+${estadoAmor}
 
 ${username} dijo: ${mensaje}
 `;
@@ -156,8 +335,23 @@ client.on("messageCreate", async (message) => {
 
     const texto = message.content.trim();
 
+    // Detecta si el mensaje es reply directo al bot
+    let esReplyDirecto = false;
+
+    if (message.reference?.messageId) {
+      try {
+        const mensajeRespondido = await message.channel.messages.fetch(message.reference.messageId);
+        esReplyDirecto = mensajeRespondido.author.id === client.user.id;
+      } catch {
+        esReplyDirecto = false;
+      }
+    }
+
     // Decide si debe responder o ignorar
-    if (!debeResponder(texto)) return;
+    if (!debeResponder(texto, esReplyDirecto)) return;
+
+    // Actualiza si Awita se enamora, se desenamora o cambia de amor
+    actualizarAmor(message, texto);
 
     const userId = message.author.id;
     const ahora = Date.now();
@@ -183,7 +377,7 @@ client.on("messageCreate", async (message) => {
     try {
       await enviarRespuestaRandom(
         message,
-        "Me dio error. Qué raro, algo salió mal."
+        "miau"
       );
     } catch {}
   }
