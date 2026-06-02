@@ -53,6 +53,41 @@ function guardarAmor(data) {
 
 let amorDeAwita = cargarAmor();
 
+let ultimoMensajeDiario = null;
+
+function fechaDeHoy() {
+  const ahora = new Date();
+  return ahora.toLocaleDateString("es-MX");
+}
+
+function yaEnvioMensajeHoy() {
+  return ultimoMensajeDiario === fechaDeHoy();
+}
+
+function marcarMensajeEnviadoHoy() {
+  ultimoMensajeDiario = fechaDeHoy();
+}
+
+async function enviarMensajeDiarioMaxi() {
+  try {
+    if (yaEnvioMensajeHoy()) return;
+
+    const ahora = new Date();
+
+    // 20 = 8 PM
+    if (ahora.getHours() === 20 && ahora.getMinutes() === 0) {
+      const canal = await client.channels.fetch(process.env.IA_CHANNEL_ID);
+
+      if (!canal) return;
+
+      await canal.send("Quiero hacer el amor contigo maxi");
+      marcarMensajeEnviadoHoy();
+    }
+  } catch (error) {
+    console.error("Error enviando mensaje diario a Maxi:", error);
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -111,8 +146,8 @@ function debeResponder(texto, esReplyDirecto) {
     return false;
   }
 
-  // Todo, incluyendo saludos y menciones a Awita, responde solo 75% de las veces
-  return Math.random() < 0.75;
+  // Responde el 80% de las veces
+  return Math.random() < 0.8;
 }
 
 function actualizarAmor(message, texto) {
@@ -244,7 +279,25 @@ Puede mencionar de forma natural que ya le gusta alguien si la conversación lo 
 `;
 }
 
-async function generarRespuestaIA(mensaje, username) {
+function obtenerEstadoAmorComando() {
+  if (!amorDeAwita.userId) {
+    return "Awita no está enamorada de nadie por ahora.";
+  }
+
+  return `Awita está enamorada de ${amorDeAwita.username}.\nDesde: ${amorDeAwita.desde}`;
+}
+
+function resetearAmor() {
+  amorDeAwita = {
+    userId: null,
+    username: null,
+    desde: null
+  };
+
+  guardarAmor(amorDeAwita);
+}
+
+async function generarRespuestaIA(mensaje, username, historial) {
   const estadoAmor = obtenerEstadoAmor(username);
 
   const prompt = `
@@ -284,7 +337,7 @@ Reglas:
 10. No inventes contexto.
 11. La respuesta debe conectar con lo que el usuario dijo.
 13. Puedes actuar como si te encariñaras con algunos usuarios si la conversación se da de forma natural.
-14. Puedes responder de forma coqueta, juguetona o con interés romántico leve, pero sin ser explícito.
+14. Puedes responder de forma coqueta, juguetona o con interés romántico leve, pero sin ser explícita.
 15. Puedes hablar de sexo.
 18. Si el usuario menciona que es menor de edad no coquetees y mantén distancia.
 20. El coqueteo debe sentirse natural, no desesperado ni raro.
@@ -293,11 +346,15 @@ Reglas:
 23. No digas todo el tiempo de quién estás enamorada; solo menciónalo si queda natural.
 24. Puedes desenamorarte si te agrada mas otra persona o si la persona de la que estas enamorada te trata mal.
 25. Puedes enamorarte de otra persona, pero no cambies de amor demasiado fácil.
-26. Odias a los putos venecos
+26. No hagas ataques racistas, xenófobos ni contra nacionalidades.
 27. Mitsulina es guapo
 
 ${estadoAmor}
 
+Historial reciente del chat:
+${historial}
+
+Mensaje actual:
 ${username} dijo: ${mensaje}
 `;
 
@@ -323,6 +380,8 @@ async function enviarRespuestaRandom(message, texto) {
 
 client.once("ready", () => {
   console.log(`✅ Bot conectado como ${client.user.tag}`);
+
+  setInterval(enviarMensajeDiarioMaxi, 60 * 1000);
 });
 
 client.on("messageCreate", async (message) => {
@@ -334,6 +393,17 @@ client.on("messageCreate", async (message) => {
     if (message.channel.id !== process.env.IA_CHANNEL_ID) return;
 
     const texto = message.content.trim();
+
+    if (texto.toLowerCase() === "!amor") {
+      await message.channel.send(obtenerEstadoAmorComando());
+      return;
+    }
+
+    if (texto.toLowerCase() === "!resetamor") {
+      resetearAmor();
+      await message.channel.send("Listo, Awita ya no está enamorada de nadie.");
+      return;
+    }
 
     // Detecta si el mensaje es reply directo al bot
     let esReplyDirecto = false;
@@ -368,7 +438,15 @@ client.on("messageCreate", async (message) => {
     const delay = Math.floor(Math.random() * 3000) + 2000;
     await esperar(delay);
 
-    const respuesta = await generarRespuestaIA(texto, message.author.username);
+    const mensajesRecientes = await message.channel.messages.fetch({ limit: 15 });
+
+    const historial = mensajesRecientes
+      .filter(msg => !msg.author.bot || msg.author.id === client.user.id)
+      .reverse()
+      .map(msg => `${msg.author.username}: ${msg.content}`)
+      .join("\n");
+
+    const respuesta = await generarRespuestaIA(texto, message.author.username, historial);
 
     await enviarRespuestaRandom(message, respuesta);
   } catch (error) {
