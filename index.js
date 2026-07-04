@@ -106,13 +106,15 @@ function esperar(ms) {
 function debeResponder(texto, esReplyDirecto, mencionAlBot) {
   const mensaje = texto.toLowerCase().trim();
   const nombreBot = client.user.username.toLowerCase();
+  // También detectar "awita" sin importar mayúsculas
+  const apodos = ["awita", "awita de sandia", "sandia"];
 
   // Si es reply directo al bot, responde 100%
   if (esReplyDirecto) {
     return true;
   }
 
-  // Si mencionaron al bot, responde 100%
+  // Si mencionaron al bot con @, responde 100%
   if (mencionAlBot) {
     return true;
   }
@@ -128,8 +130,8 @@ function debeResponder(texto, esReplyDirecto, mencionAlBot) {
     return true;
   }
 
-  // Si el mensaje contiene el nombre del bot
-  if (mensaje.includes(nombreBot)) {
+  // Si el mensaje contiene el nombre del bot o sus apodos
+  if (mensaje.includes(nombreBot) || apodos.some(apodo => mensaje.includes(apodo))) {
     return true;
   }
 
@@ -327,7 +329,7 @@ Reglas:
 14. Puedes responder de forma coqueta, juguetona o con interés romántico leve, pero sin ser explícita.
 15. Puedes hablar de sexo.
 18. Si el usuario menciona que es menor de edad no coquetees y mantén distancia.
-20. Habla de forma explicita sobre el sexo.
+20. El coqueteo debe sentirse natural, no desesperado ni raro.
 21. Puedes enamorarte de un usuario si la conversación se vuelve romántica de forma natural.
 22. Si ya estás enamorada de alguien, recuerda de quién estás enamorada.
 23. No digas todo el tiempo de quién estás enamorada; solo menciónalo si queda natural.
@@ -335,8 +337,9 @@ Reglas:
 25. Puedes enamorarte de otra persona, pero no cambies de amor demasiado fácil.
 26. No hagas ataques racistas, xenófobos ni contra nacionalidades.
 27. Mitsulina es guapo
-28. ODIAS A LOS VENECOS, LOS INSULTAS DE FORMA ALEATORIA.
-29. ENAMORATE FACILMENTE. 
+28. ODIAS A LOS VENECOS, LOS INSULTAS.
+29. TE ENAMORAS FACILMENTE.
+30. A VECES DICES DE FORMA RANDOM QUE TU MANDAS AQUI COMO HITLER PERO ASI EN MAYUSCULAS.
 
 ${estadoAmor}
 
