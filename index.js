@@ -103,51 +103,38 @@ function esperar(ms) {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
-function debeResponder(texto, esReplyDirecto) {
+function debeResponder(texto, esReplyDirecto, mencionAlBot) {
   const mensaje = texto.toLowerCase().trim();
+  const nombreBot = client.user.username.toLowerCase();
 
   // Si es reply directo al bot, responde 100%
   if (esReplyDirecto) {
     return true;
   }
 
-  // Ignora respuestas simples, risas o mensajes sin mucho contexto
-  const ignorarSiempre = [
-    "jaja",
-    "jajaja",
-    "jajajaja",
-    "jeje",
-    "jejeje",
-    "jejejeje",
-    "haha",
-    "hahaha",
-    "lol",
-    "xd",
-    "ok",
-    "okay",
-    "si",
-    "sí",
-    "no",
-    "wtf",
-    "k",
-    "a",
-    "e",
-    "i",
-    "o",
-    "u"
+  // Si mencionaron al bot, responde 100%
+  if (mencionAlBot) {
+    return true;
+  }
+
+  // Si es un saludo (hola, buenos días, etc.)
+  const saludos = [
+    "hola", "buenos días", "buenos dias", "buenas tardes", "buenas noches",
+    "hey", "que tal", "qué tal", "que onda", "qué onda", "saludos",
+    "buen día", "buen dia", "buenas", "holi", "holis"
   ];
 
-  if (ignorarSiempre.includes(mensaje)) {
-    return false;
+  if (saludos.includes(mensaje)) {
+    return true;
   }
 
-  // Ignora mensajes demasiado cortos
-  if (mensaje.length <= 2) {
-    return false;
+  // Si el mensaje contiene el nombre del bot
+  if (mensaje.includes(nombreBot)) {
+    return true;
   }
 
-  // Responde el 80% de las veces
-  return Math.random() < 0.8;
+  // No responde automáticamente a mensajes normales
+  return false;
 }
 
 function actualizarAmor(message, texto) {
@@ -319,7 +306,7 @@ Estilo:
 - Responde siempre en español.
 - Usa lenguaje informal y natural.
 - No suenes educado ni formal.
-- No digas “¿en qué puedo ayudarte?”.
+- No digas "¿en qué puedo ayudarte?".
 - No des respuestas largas si no hace falta.
 - No expliques demasiado.
 - No uses groserías en cada respuesta.
@@ -340,7 +327,7 @@ Reglas:
 14. Puedes responder de forma coqueta, juguetona o con interés romántico leve, pero sin ser explícita.
 15. Puedes hablar de sexo.
 18. Si el usuario menciona que es menor de edad no coquetees y mantén distancia.
-20. El coqueteo debe sentirse natural, no desesperado ni raro.
+20. Habla de forma explicita sobre el sexo.
 21. Puedes enamorarte de un usuario si la conversación se vuelve romántica de forma natural.
 22. Si ya estás enamorada de alguien, recuerda de quién estás enamorada.
 23. No digas todo el tiempo de quién estás enamorada; solo menciónalo si queda natural.
@@ -348,6 +335,8 @@ Reglas:
 25. Puedes enamorarte de otra persona, pero no cambies de amor demasiado fácil.
 26. No hagas ataques racistas, xenófobos ni contra nacionalidades.
 27. Mitsulina es guapo
+28. ODIAS A LOS VENECOS, LOS INSULTAS DE FORMA ALEATORIA.
+29. ENAMORATE FACILMENTE. 
 
 ${estadoAmor}
 
@@ -417,8 +406,11 @@ client.on("messageCreate", async (message) => {
       }
     }
 
+    // Detecta si mencionaron al bot
+    const mencionAlBot = message.mentions.has(client.user.id);
+
     // Decide si debe responder o ignorar
-    if (!debeResponder(texto, esReplyDirecto)) return;
+    if (!debeResponder(texto, esReplyDirecto, mencionAlBot)) return;
 
     // Actualiza si Awita se enamora, se desenamora o cambia de amor
     actualizarAmor(message, texto);
