@@ -88,6 +88,27 @@ async function enviarMensajeDiarioMaxi() {
   }
 }
 
+// Nueva función para ejecutar el comando bump
+async function ejecutarBump() {
+  try {
+    console.log("🔄 Ejecutando bump...");
+    
+    // Buscar el canal donde está el bot
+    const canal = await client.channels.fetch(process.env.IA_CHANNEL_ID);
+    
+    if (!canal) {
+      console.error("❌ No se encontró el canal");
+      return;
+    }
+
+    // Ejecutar el comando /bump
+    await canal.send("/bump");
+    console.log("✅ Comando bump ejecutado correctamente");
+  } catch (error) {
+    console.error("❌ Error ejecutando bump:", error);
+  }
+}
+
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -373,7 +394,22 @@ async function enviarRespuestaRandom(message, texto) {
 client.once("ready", () => {
   console.log(`✅ Bot conectado como ${client.user.tag}`);
 
+  // Intervalo para el mensaje diario de Maxi
   setInterval(enviarMensajeDiarioMaxi, 60 * 1000);
+
+  // Intervalo para ejecutar bump cada 2 horas y 1 minuto (7260 segundos)
+  // 2 horas = 7200 segundos + 1 minuto = 60 segundos = 7260 segundos
+  const intervaloBump = 2 * 60 * 60 * 1000 + 1 * 60 * 1000; // 2 horas y 1 minuto en milisegundos
+  
+  // Ejecutar bump inmediatamente al iniciar (opcional)
+  setTimeout(() => {
+    ejecutarBump();
+  }, 5000); // Espera 5 segundos para que el bot esté listo
+
+  // Configurar el intervalo para ejecutar bump cada 2:01 horas
+  setInterval(ejecutarBump, intervaloBump);
+  
+  console.log(`⏰ Bump configurado cada 2 horas y 1 minuto (${intervaloBump/1000} segundos)`);
 });
 
 client.on("messageCreate", async (message) => {
@@ -394,6 +430,12 @@ client.on("messageCreate", async (message) => {
     if (texto.toLowerCase() === "!resetamor") {
       resetearAmor();
       await message.channel.send("Listo, Awita ya no está enamorada de nadie.");
+      return;
+    }
+
+    // Comando manual para ejecutar bump
+    if (texto.toLowerCase() === "!bump") {
+      await ejecutarBump();
       return;
     }
 
