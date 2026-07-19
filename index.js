@@ -74,7 +74,6 @@ async function enviarMensajeDiarioMaxi() {
 
     const ahora = new Date();
 
-    // 20 = 8 PM
     if (ahora.getHours() === 20 && ahora.getMinutes() === 0) {
       const canal = await client.channels.fetch(process.env.IA_CHANNEL_ID);
 
@@ -88,12 +87,11 @@ async function enviarMensajeDiarioMaxi() {
   }
 }
 
-// Nueva función para ejecutar el comando bump
+// Función para ejecutar bump usando webhook
 async function ejecutarBump() {
   try {
-    console.log("🔄 Ejecutando bump...");
+    console.log("🔄 Awita está ejecutando /bump...");
     
-    // Buscar el canal donde está el bot
     const canal = await client.channels.fetch(process.env.IA_CHANNEL_ID);
     
     if (!canal) {
@@ -101,9 +99,26 @@ async function ejecutarBump() {
       return;
     }
 
-    // Ejecutar el comando /bump
-    await canal.send("/bump");
-    console.log("✅ Comando bump ejecutado correctamente");
+    // Obtener o crear webhook
+    const webhooks = await canal.fetchWebhooks();
+    let webhook = webhooks.find(w => w.name === "AwitaBump");
+    
+    if (!webhook) {
+      webhook = await canal.createWebhook({
+        name: "AwitaBump",
+        avatar: client.user.displayAvatarURL()
+      });
+      console.log("✅ Webhook 'AwitaBump' creado");
+    }
+
+    // Enviar /bump usando el webhook
+    await webhook.send({
+      content: "/bump",
+      username: "Awita de Sandia",
+      avatarURL: client.user.displayAvatarURL()
+    });
+    
+    console.log("✅ Awita ejecutó /bump correctamente");
   } catch (error) {
     console.error("❌ Error ejecutando bump:", error);
   }
@@ -127,36 +142,20 @@ function esperar(ms) {
 function debeResponder(texto, esReplyDirecto, mencionAlBot) {
   const mensaje = texto.toLowerCase().trim();
   const nombreBot = client.user.username.toLowerCase();
-  // También detectar "awita" sin importar mayúsculas
   const apodos = ["awita", "awita de sandia", "sandia"];
 
-  // Si es reply directo al bot, responde 100%
-  if (esReplyDirecto) {
-    return true;
-  }
+  if (esReplyDirecto) return true;
+  if (mencionAlBot) return true;
 
-  // Si mencionaron al bot con @, responde 100%
-  if (mencionAlBot) {
-    return true;
-  }
-
-  // Si es un saludo (hola, buenos días, etc.)
   const saludos = [
     "hola", "buenos días", "buenos dias", "buenas tardes", "buenas noches",
     "hey", "que tal", "qué tal", "que onda", "qué onda", "saludos",
     "buen día", "buen dia", "buenas", "holi", "holis"
   ];
 
-  if (saludos.includes(mensaje)) {
-    return true;
-  }
+  if (saludos.includes(mensaje)) return true;
+  if (mensaje.includes(nombreBot) || apodos.some(apodo => mensaje.includes(apodo))) return true;
 
-  // Si el mensaje contiene el nombre del bot o sus apodos
-  if (mensaje.includes(nombreBot) || apodos.some(apodo => mensaje.includes(apodo))) {
-    return true;
-  }
-
-  // No responde automáticamente a mensajes normales
   return false;
 }
 
@@ -164,52 +163,22 @@ function actualizarAmor(message, texto) {
   const mensaje = texto.toLowerCase();
 
   const frasesRomanticas = [
-    "te amo",
-    "te quiero",
-    "me gustas",
-    "eres bonita",
-    "eres hermosa",
-    "eres linda",
-    "quieres ser mi novia",
-    "sé mi novia",
-    "se mi novia",
-    "cásate conmigo",
-    "casate conmigo",
-    "me encantas",
-    "te extraño",
-    "te necesito"
+    "te amo", "te quiero", "me gustas", "eres bonita", "eres hermosa",
+    "eres linda", "quieres ser mi novia", "sé mi novia", "se mi novia",
+    "cásate conmigo", "casate conmigo", "me encantas", "te extraño", "te necesito"
   ];
 
   const frasesRuptura = [
-    "ya no te quiero",
-    "ya no me gustas",
-    "terminamos",
-    "olvídame",
-    "olvidame",
-    "ya no quiero nada contigo",
-    "no me hables",
-    "me caes mal",
-    "vete",
-    "callate",
-    "cállate"
+    "ya no te quiero", "ya no me gustas", "terminamos", "olvídame",
+    "olvidame", "ya no quiero nada contigo", "no me hables", "me caes mal",
+    "vete", "callate", "cállate"
   ];
 
   const frasesCelosCambio = [
-    "yo te quiero más",
-    "yo te quiero mas",
-    "yo te amo más",
-    "yo te amo mas",
-    "olvídate de él",
-    "olvidate de el",
-    "olvídate de ella",
-    "olvidate de ella",
-    "enamórate de mí",
-    "enamorate de mi",
-    "yo soy mejor",
-    "déjalo por mí",
-    "dejalo por mi",
-    "déjala por mí",
-    "dejala por mi"
+    "yo te quiero más", "yo te quiero mas", "yo te amo más", "yo te amo mas",
+    "olvídate de él", "olvidate de el", "olvídate de ella", "olvidate de ella",
+    "enamórate de mí", "enamorate de mi", "yo soy mejor", "déjalo por mí",
+    "dejalo por mi", "déjala por mí", "dejala por mi"
   ];
 
   const dijoAlgoRomantico = frasesRomanticas.some(frase => mensaje.includes(frase));
@@ -218,31 +187,26 @@ function actualizarAmor(message, texto) {
 
   const esSuAmorActual = amorDeAwita.userId === message.author.id;
 
-  // Si la persona de la que está enamorada la rechaza o la trata mal, se desenamora
   if (amorDeAwita.userId && esSuAmorActual && dijoRuptura) {
     amorDeAwita = {
       userId: null,
       username: null,
       desde: null
     };
-
     guardarAmor(amorDeAwita);
     return;
   }
 
-  // Si no está enamorada, puede enamorarse
   if (!amorDeAwita.userId && dijoAlgoRomantico && Math.random() < 0.65) {
     amorDeAwita = {
       userId: message.author.id,
       username: message.author.username,
       desde: new Date().toISOString()
     };
-
     guardarAmor(amorDeAwita);
     return;
   }
 
-  // Si ya está enamorada de alguien, puede cambiar de amor, pero no tan fácil
   if (
     amorDeAwita.userId &&
     !esSuAmorActual &&
@@ -254,7 +218,6 @@ function actualizarAmor(message, texto) {
       username: message.author.username,
       desde: new Date().toISOString()
     };
-
     guardarAmor(amorDeAwita);
     return;
   }
@@ -293,7 +256,6 @@ function obtenerEstadoAmorComando() {
   if (!amorDeAwita.userId) {
     return "Awita no está enamorada de nadie por ahora.";
   }
-
   return `Awita está enamorada de ${amorDeAwita.username}.\nDesde: ${amorDeAwita.desde}`;
 }
 
@@ -303,7 +265,6 @@ function resetearAmor() {
     username: null,
     desde: null
   };
-
   guardarAmor(amorDeAwita);
 }
 
@@ -382,8 +343,6 @@ ${username} dijo: ${mensaje}
 async function enviarRespuestaRandom(message, texto) {
   const respuestaFinal = texto.slice(0, 1800);
 
-  // 30% responde directo al mensaje
-  // 70% manda mensaje normal en el canal
   if (Math.random() < 0.3) {
     await message.reply(respuestaFinal);
   } else {
@@ -392,32 +351,30 @@ async function enviarRespuestaRandom(message, texto) {
 }
 
 client.once("ready", () => {
-  console.log(`✅ Bot conectado como ${client.user.tag}`);
+  console.log(`✅ Awita conectada como ${client.user.tag}`);
 
-  // Intervalo para el mensaje diario de Maxi
+  // Mensaje diario para Maxi
   setInterval(enviarMensajeDiarioMaxi, 60 * 1000);
 
-  // Intervalo para ejecutar bump cada 2 horas y 1 minuto (7260 segundos)
-  // 2 horas = 7200 segundos + 1 minuto = 60 segundos = 7260 segundos
-  const intervaloBump = 2 * 60 * 60 * 1000 + 1 * 60 * 1000; // 2 horas y 1 minuto en milisegundos
+  // Bump cada 2 horas y 1 minuto
+  const intervaloBump = 2 * 60 * 60 * 1000 + 1 * 60 * 1000;
   
-  // Ejecutar bump inmediatamente al iniciar (opcional)
+  // Ejecutar bump 10 segundos después de iniciar
   setTimeout(() => {
     ejecutarBump();
-  }, 5000); // Espera 5 segundos para que el bot esté listo
+  }, 10000);
 
-  // Configurar el intervalo para ejecutar bump cada 2:01 horas
+  // Configurar intervalo
   setInterval(ejecutarBump, intervaloBump);
   
-  console.log(`⏰ Bump configurado cada 2 horas y 1 minuto (${intervaloBump/1000} segundos)`);
+  console.log(`⏰ Awita hará bump cada 2 horas y 1 minuto`);
+  console.log(`📝 Comando: /bump`);
+  console.log(`🕐 Próximo bump en ${intervaloBump/1000} segundos`);
 });
 
 client.on("messageCreate", async (message) => {
   try {
-    // No responder a otros bots
     if (message.author.bot) return;
-
-    // Solo responder en el canal elegido
     if (message.channel.id !== process.env.IA_CHANNEL_ID) return;
 
     const texto = message.content.trim();
@@ -433,13 +390,12 @@ client.on("messageCreate", async (message) => {
       return;
     }
 
-    // Comando manual para ejecutar bump
     if (texto.toLowerCase() === "!bump") {
       await ejecutarBump();
+      await message.reply("✅ Awita ejecutó /bump!");
       return;
     }
 
-    // Detecta si el mensaje es reply directo al bot
     let esReplyDirecto = false;
 
     if (message.reference?.messageId) {
@@ -451,27 +407,22 @@ client.on("messageCreate", async (message) => {
       }
     }
 
-    // Detecta si mencionaron al bot
     const mencionAlBot = message.mentions.has(client.user.id);
 
-    // Decide si debe responder o ignorar
     if (!debeResponder(texto, esReplyDirecto, mencionAlBot)) return;
 
-    // Actualiza si Awita se enamora, se desenamora o cambia de amor
     actualizarAmor(message, texto);
 
     const userId = message.author.id;
     const ahora = Date.now();
     const ultimoUso = cooldowns.get(userId) || 0;
 
-    // Cooldown por usuario: 15 segundos
     if (ahora - ultimoUso < 15000) return;
 
     cooldowns.set(userId, ahora);
 
     await message.channel.sendTyping();
 
-    // Delay random de 2 a 5 segundos
     const delay = Math.floor(Math.random() * 3000) + 2000;
     await esperar(delay);
 
@@ -490,10 +441,7 @@ client.on("messageCreate", async (message) => {
     console.error("Error:", error);
 
     try {
-      await enviarRespuestaRandom(
-        message,
-        "miau"
-      );
+      await enviarRespuestaRandom(message, "miau");
     } catch {}
   }
 });
